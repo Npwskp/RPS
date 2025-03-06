@@ -11,11 +11,12 @@ contract RPS is CommitReveal, TimeUnit {
     // 0 - Rock, 1 - Paper, 2 - Scissors, 3 - Lizard, 4 - Spock, 5 - Undefined
     mapping (address => uint) public player_choice;
     mapping(address => bool) public player_not_played;
+    mapping(address => bool) public player_not_revealed;
     address[] public players;
     uint public numInput = 0;
+    uint public numPlayerReveal = 0;
     
     // New state variables
-    uint public constant TIMEOUT_DURATION = 1 hours;
     mapping(address => bool) public whitelistedAddresses;
     
     // Events
@@ -76,40 +77,57 @@ contract RPS is CommitReveal, TimeUnit {
         
         player_choice[msg.sender] = choice;
         player_not_played[msg.sender] = false;
+        player_not_revealed[msg.sender] = false;
         numInput++;
+        numPlayerReveal++;
         
         if (numInput == 2) {
             _checkWinnerAndPay();
         }
     }
 
-    function requestRefund() public {
-        require(numPlayer == 2);
-        require(player_not_played[msg.sender]);
-        require(elapsedSeconds() >= TIMEOUT_DURATION, "Timeout not reached");
+    function refundNotRevealCase() public {
+        require(numInput == 2);
+        require(numPlayerReveal < 2);
+        require(elapsedMinutes() >= 20 minutes);
         
-        uint refundAmount = 1 ether;
-        player_not_played[msg.sender] = false;
-        reward -= refundAmount;
+        address payable account0 = payable(players[0]);
+        address payable account1 = payable(players[1]);
+
+        if (player_not_revealed[players[0]]) {
+            account1.transfer(reward);
+        } else {
+            account0.transfer(reward);
+        }
         
-        emit RefundRequested(msg.sender);
-        payable(msg.sender).transfer(refundAmount);
-        emit RefundProcessed(msg.sender, refundAmount);
+        _resetGame();
+    }
+
+    function refundNotEnoughPlayerCase() public {
+        require(numInput < 2);
+        require(elapsedMinutes() >= 10 minutes);
+
+        for (uint i = 0; i < numPlayer; i++) {
+            address payable player = payable(players[i]);
+            if (player_not_played[player]) {
+                player.transfer(reward / numPlayer);
+            }
+        }
 
         _resetGame();
     }
 
+
     function _resetGame() public {
-        require(numInput == 2 || (elapsedSeconds() >= TIMEOUT_DURATION && numPlayer == 2));
-        
-        // Reset all state variables
         for(uint i = 0; i < players.length; i++) {
             player_not_played[players[i]] = false;
             player_choice[players[i]] = 5; // Reset to undefined
+            player_not_revealed[players[i]] = true;
         }
         players = new address[](0);
         numPlayer = 0;
         numInput = 0;
+        numPlayerReveal = 0;
         reward = 0;
         startTime = 0;
         
