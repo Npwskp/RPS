@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity >=0.7.0 <0.9.0;
+pragma solidity >=0.8.2 <0.9.0;
 
 import "./CommitReveal.sol";
 import "./TimeUnit.sol";
@@ -49,18 +49,31 @@ contract RPS is CommitReveal, TimeUnit {
         }
     }
 
+    function getChoiceHash(uint256 choice, string memory salt) public pure returns (bytes32) {
+        require(choice >= 0 && choice <= 4, "Invalid choice"); // 0-4 for RPSLS
+
+        bytes32 _salt = keccak256(abi.encodePacked(salt)); 
+        bytes32 _choice = bytes32(choice); 
+
+        return getHash(keccak256(abi.encodePacked(_choice, _salt))); 
+    }
+
     function commitChoice(bytes32 commitHash) public {
         require(numPlayer == 2);
         require(player_not_played[msg.sender]);
         commit(commitHash);
     }
 
-    function revealChoice(uint choice, bytes32 revealHash) public {
+    function revealChoice(uint choice, string memory salt) public {
         require(numPlayer == 2);
         require(player_not_played[msg.sender]);
         require(choice >= 0 && choice <= 4, "Invalid choice"); // 0-4 for RPSLS
         
+        bytes32 _salt = keccak256(abi.encodePacked(salt)); 
+        bytes32 _choice = bytes32(choice); 
+        bytes32 revealHash = keccak256(abi.encodePacked(_choice, _salt));
         reveal(revealHash);
+        
         player_choice[msg.sender] = choice;
         player_not_played[msg.sender] = false;
         numInput++;
@@ -82,9 +95,11 @@ contract RPS is CommitReveal, TimeUnit {
         emit RefundRequested(msg.sender);
         payable(msg.sender).transfer(refundAmount);
         emit RefundProcessed(msg.sender, refundAmount);
+
+        _resetGame();
     }
 
-    function resetGame() public {
+    function _resetGame() public {
         require(numInput == 2 || (elapsedSeconds() >= TIMEOUT_DURATION && numPlayer == 2));
         
         // Reset all state variables
@@ -102,10 +117,6 @@ contract RPS is CommitReveal, TimeUnit {
     }
 
     function _checkWinner(uint p0Choice, uint p1Choice) private pure returns (uint8) {
-        if (p0Choice == 5 || p1Choice == 5) {
-            return 0; // Undefined results in tie
-        }
-
         if (p0Choice == p1Choice) {
             return 0; // equal
         }
@@ -138,5 +149,6 @@ contract RPS is CommitReveal, TimeUnit {
             account1.transfer(reward / 2);
             emit GameResult(address(0), p0Choice, p1Choice); // Tie game
         }
+        _resetGame();
     }
 }
