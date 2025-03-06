@@ -121,8 +121,9 @@ contract RPS is CommitReveal, TimeUnit {
             return 0; // equal
         }
 
-        if((p0Choice + 1) % 5 == p1Choice || (p0Choice - 2) % 5 == p1Choice) {
-            return 1; // p0win
+        // Check if p0 wins (p1Choice is 1 or 2 steps behind in the cycle)
+        if ((p0Choice + 3) % 5 == p1Choice || (p0Choice + 4) % 5 == p1Choice) {
+            return 1; // p0 wins
         }
 
         return 2; // p1win
