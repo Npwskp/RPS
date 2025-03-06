@@ -3,6 +3,24 @@
 ## 1. Added Game Reset Functionality
 - Now, a reset function allows the game to be restarted after a round has been completed, of refund happened.
 
+```solidity
+function _resetGame() public {
+      for(uint i = 0; i < players.length; i++) {
+          player_not_played[players[i]] = false;
+          player_choice[players[i]] = 5; // Reset to undefined
+          player_not_revealed[players[i]] = true;
+      }
+      players = new address[](0);
+      numPlayer = 0;
+      numInput = 0;
+      numPlayerReveal = 0;
+      reward = 0;
+      startTime = 0;
+      
+      emit GameReset();
+  }
+```
+
 ## 2. Implemented Whitelisted Players
 - Only specific accounts (limited to four addresses) are allowed to participate in the game.
 - This ensures only authorized users can play, preventing unwanted access.
