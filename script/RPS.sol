@@ -5,7 +5,7 @@ pragma solidity >=0.7.0 <0.9.0;
 import "./CommitReveal.sol";
 import "./TimeUnit.sol";
 
-contract RPS {
+contract RPS is CommitReveal, TimeUnit {
     uint public numPlayer = 0;
     uint public reward = 0;
     // 0 - Rock, 1 - Paper, 2 - Scissors, 3 - Lizard, 4 - Spock, 5 - Undefined
@@ -15,11 +15,8 @@ contract RPS {
     uint public numInput = 0;
     
     // New state variables
-    uint public startTime;
     uint public constant TIMEOUT_DURATION = 1 hours;
     mapping(address => bool) public whitelistedAddresses;
-    CommitReveal public commitRevealContract;
-    TimeUnit public timeUnitContract;
     
     // Events
     event GameReset();
@@ -27,9 +24,7 @@ contract RPS {
     event RefundProcessed(address player, uint amount);
     event GameResult(address winner, uint choice1, uint choice2);
     
-    constructor(address _commitRevealAddress, address _timeUnitAddress) {
-        commitRevealContract = CommitReveal(_commitRevealAddress);
-        timeUnitContract = TimeUnit(_timeUnitAddress);
+    constructor() {
         // Initialize whitelisted addresses
         whitelistedAddresses[0x5B38Da6a701c568545dCfcB03FcB875f56beddC4] = true;
         whitelistedAddresses[0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2] = true;
@@ -50,14 +45,14 @@ contract RPS {
         numPlayer++;
         
         if (numPlayer == 1) {
-            startTime = timeUnitContract.startTime();
+            startTime = block.timestamp;
         }
     }
 
     function commitChoice(bytes32 commitHash) public {
         require(numPlayer == 2);
         require(player_not_played[msg.sender]);
-        commitRevealContract.commit(commitHash);
+        commit(commitHash);
     }
 
     function revealChoice(uint choice, bytes32 revealHash) public {
@@ -65,7 +60,7 @@ contract RPS {
         require(player_not_played[msg.sender]);
         require(choice >= 0 && choice <= 4, "Invalid choice"); // 0-4 for RPSLS
         
-        commitRevealContract.reveal(revealHash);
+        reveal(revealHash);
         player_choice[msg.sender] = choice;
         player_not_played[msg.sender] = false;
         numInput++;
@@ -78,7 +73,7 @@ contract RPS {
     function requestRefund() public {
         require(numPlayer == 2);
         require(player_not_played[msg.sender]);
-        require(timeUnitContract.elapsedSeconds() >= TIMEOUT_DURATION, "Timeout not reached");
+        require(elapsedSeconds() >= TIMEOUT_DURATION, "Timeout not reached");
         
         uint refundAmount = 1 ether;
         player_not_played[msg.sender] = false;
@@ -90,7 +85,7 @@ contract RPS {
     }
 
     function resetGame() public {
-        require(numInput == 2 || (timeUnitContract.elapsedSeconds() >= TIMEOUT_DURATION && numPlayer == 2));
+        require(numInput == 2 || (elapsedSeconds() >= TIMEOUT_DURATION && numPlayer == 2));
         
         // Reset all state variables
         for(uint i = 0; i < players.length; i++) {
